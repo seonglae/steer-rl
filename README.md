@@ -1,5 +1,6 @@
 ## Case study 
-![image](https://github.com/user-attachments/assets/bbd37aeb-f550-4abf-b663-46c9c0840d58)
+![image](https://github.com/user-attachments/assets/8ab1edc0-be8b-4911-86ee-e7af7c86fc3d)
+
 
 
 
