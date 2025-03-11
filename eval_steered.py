@@ -72,7 +72,7 @@ def batch_steering_hook(policy_net, sae):
             return (residual,)
     return SteeringHook(policy_net, sae)
 
-# Define MMLUDataLoader for validation (no limit)
+# Define MMLUDataLoader for test (no limit)
 class MMLUDataLoader:
     def __init__(self, dataset, split, limit=None):
         self.data = dataset[split]
@@ -100,7 +100,7 @@ class MMLUDataLoader:
             }
 
 mmlu_dataset = load_dataset("cais/mmlu", "all")
-val_loader = MMLUDataLoader(mmlu_dataset, split="validation")  # full validation set
+test_loader = MMLUDataLoader(mmlu_dataset, split="test")  # full test set
 
 results = []
 correct = 0
@@ -108,7 +108,7 @@ total = 0
 batch_size = 16
 batch_samples = []
 
-for sample in tqdm(val_loader, total=val_loader.n_samples, desc="Evaluating"):
+for sample in tqdm(test_loader, total=test_loader.n_samples, desc="Evaluating"):
     batch_samples.append(sample)
     if len(batch_samples) == batch_size:
         prompts = []

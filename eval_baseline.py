@@ -13,7 +13,7 @@ tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b-it")
 llm = AutoModelForCausalLM.from_pretrained("google/gemma-2-2b-it", output_hidden_states=True).to(device)
 llm.eval()
 
-# Define a simple MMLUDataLoader that iterates over all validation samples.
+# Define a simple MMLUDataLoader that iterates over all test samples.
 class MMLUDataLoader:
     def __init__(self, dataset, split):
         self.data = dataset[split]
@@ -29,7 +29,7 @@ class MMLUDataLoader:
 
 # Load the MMLU dataset (using the "cais/mmlu" dataset with the "all" configuration).
 mmlu_dataset = load_dataset("cais/mmlu", "all")
-val_loader = MMLUDataLoader(mmlu_dataset, split="validation")
+test_loader = MMLUDataLoader(mmlu_dataset, split="test")
 
 results = []
 correct_count = 0
@@ -37,8 +37,8 @@ total = 0
 batch_size = 16
 batch_samples = []
 
-# Process validation samples in batches using tqdm for progress.
-for sample in tqdm(val_loader, total=val_loader.n_samples, desc="Evaluating"):
+# Process test samples in batches using tqdm for progress.
+for sample in tqdm(test_loader, total=test_loader.n_samples, desc="Evaluating"):
     batch_samples.append(sample)
     if len(batch_samples) == batch_size:
         prompts = []
