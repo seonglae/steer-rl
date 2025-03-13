@@ -4,28 +4,17 @@ from datasets import load_dataset
 import pandas as pd
 from tqdm import tqdm
 
+from steer_rl.dataset import MMLUDataLoader
+
 # Set device.
 device = "cuda" if torch.cuda.is_available() else "cpu"
 device = "mps" if torch.backends.mps.is_available() else device
 
 # Load gemma-2-2b model and tokenizer.
 tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b-it")
-llm = AutoModelForCausalLM.from_pretrained("google/gemma-2-2b-it", output_hidden_states=True).to(device)
+llm = AutoModelForCausalLM.from_pretrained("google/gemma-2-2b-it", device_map="auto")
 llm.eval()
 
-# Define a simple MMLUDataLoader that iterates over all test samples.
-class MMLUDataLoader:
-    def __init__(self, dataset, split):
-        self.data = dataset[split]
-        self.n_samples = len(self.data)
-    def __iter__(self):
-        for sample in self.data:
-            # Expect each sample to have keys "question", "choices", and "answer".
-            yield {
-                "question": sample["question"],
-                "choices": sample["choices"],
-                "answer": sample["answer"]
-            }
 
 # Load the MMLU dataset (using the "cais/mmlu" dataset with the "all" configuration).
 mmlu_dataset = load_dataset("cais/mmlu", "all")
@@ -34,7 +23,7 @@ test_loader = MMLUDataLoader(mmlu_dataset, split="test")
 results = []
 correct_count = 0
 total = 0
-batch_size = 16
+batch_size = 16 # for 3090ti 24GB
 batch_samples = []
 
 # Process test samples in batches using tqdm for progress.

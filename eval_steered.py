@@ -3,6 +3,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from datasets import load_dataset
 import pandas as pd
 from tqdm import tqdm
+from steer_rl.ppo import PolicyNetwork 
+from steer_rl.dataset import MMLUDataLoader
+from steer_rl.steer import batch_steering_hook
 
 # Fix seed
 seed = 42
@@ -31,14 +34,6 @@ sae, cfg_dict, sparsity = SAE.from_pretrained(
 )
 sae = sae.to(device)
 
-# Define PolicyNetwork
-class PolicyNetwork(torch.nn.Module):
-    def __init__(self, latent_dim, dict_size):
-        super().__init__()
-        self.linear = torch.nn.Linear(latent_dim, dict_size)
-        self.activation = torch.nn.Tanh()
-    def forward(self, x):
-        return self.activation(self.linear(x))
 
 LATENT_DIM = 2304
 DICT_SIZE = 16384
@@ -46,58 +41,6 @@ policy_net = PolicyNetwork(LATENT_DIM, DICT_SIZE).to(device)
 policy_net.eval()
 checkpoint = torch.load("./checkpoints/best_policy.pt")
 policy_net.load_state_dict(checkpoint["policy_state_dict"])
-
-# Define batch-aware steering hook
-def batch_steering_hook(policy_net, sae):
-    class SteeringHook:
-        def __init__(self, policy_net, sae):
-            self.policy_net = policy_net
-            self.sae = sae
-            self.observation = None
-            self.action = None
-            self.log_prob = None
-        def __call__(self, module, inputs):
-            residual = inputs[0]  # (B, seq_len, hidden_dim)
-            obs = residual[:, -1, :]  # (B, latent_dim)
-            self.observation = obs.detach()
-            mean = self.policy_net(obs)
-            sigma = torch.ones_like(mean) * 0.1
-            dist = torch.distributions.Normal(mean, sigma)
-            action = dist.rsample()
-            log_prob = dist.log_prob(action).sum(dim=-1)
-            self.action = action.detach()
-            self.log_prob = log_prob.detach()
-            steering = self.sae.decode(action)  # (B, hidden_dim)
-            residual[:, -1, :] = residual[:, -1, :] + steering
-            return (residual,)
-    return SteeringHook(policy_net, sae)
-
-# Define MMLUDataLoader for test (no limit)
-class MMLUDataLoader:
-    def __init__(self, dataset, split, limit=None):
-        self.data = dataset[split]
-        if limit is not None:
-            self.data = self.data.select(range(limit))
-        self.n_samples = len(self.data)
-        self.index = 0
-    def get_batch(self, batch_size):
-        batch = []
-        for _ in range(batch_size):
-            sample = self.data[self.index % self.n_samples]
-            self.index += 1
-            batch.append({
-                "question": sample["question"],
-                "choices": sample["choices"],
-                "answer": sample["answer"]
-            })
-        return batch
-    def __iter__(self):
-        for sample in self.data:
-            yield {
-                "question": sample["question"],
-                "choices": sample["choices"],
-                "answer": sample["answer"]
-            }
 
 mmlu_dataset = load_dataset("cais/mmlu", "all")
 test_loader = MMLUDataLoader(mmlu_dataset, split="test")  # full test set
